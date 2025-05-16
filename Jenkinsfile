@@ -1,7 +1,7 @@
 pipeline {
-  agent any
+  agent none                        // start with “no default” agent
   environment {
-    IMAGE = 'srimanthy/myapp'      // <-- your DockerHub repo
+    IMAGE = 'srimanthy/myapp'       // ← your Docker Hub repo
   }
 
   stages {
@@ -13,7 +13,7 @@ pipeline {
       }
     }
 
-    stage('Build Docker Image') {
+    stage('Build & Push') {
       agent {
         docker {
           image 'docker:20.10.24-dind'
@@ -21,24 +21,16 @@ pipeline {
         }
       }
       steps {
+        // 1) build
         sh 'docker build -t $IMAGE:${BUILD_NUMBER} .'
-      }
-    }
 
-    stage('Push to Docker Hub') {
-      agent {
-        docker {
-          image 'docker:20.10.24-dind'
-          args  '--privileged -v /var/run/docker.sock:/var/run/docker.sock'
-        }
-      }
-      steps {
+        // 2) push
         withCredentials([usernamePassword(
           credentialsId: 'docker-hub',
-          usernameVariable: 'USER',
-          passwordVariable: 'PASS'
+          usernameVariable: 'DOCKER_USER',
+          passwordVariable: 'DOCKER_PASS'
         )]) {
-          sh 'echo $PASS | docker login -u $USER --password-stdin'
+          sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
           sh 'docker push $IMAGE:${BUILD_NUMBER}'
         }
       }
@@ -46,10 +38,8 @@ pipeline {
   }
 
   post {
-    failure { echo '❌ Build or push failed' }
-    success { echo '✅ Docker image built & pushed!' }
+    success { echo '✅ Image built & pushed!' }
+    failure { echo '❌ Something broke!' }
   }
 }
-
-
 
