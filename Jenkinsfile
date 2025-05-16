@@ -1,11 +1,6 @@
 pipeline {
   agent { docker { image 'node:20-alpine' } }
 
-  environment {
-    IMAGE = 'myapp'
-    REG_CREDS = 'dockerhub' // ID from Jenkins credentials
-  }
-
   stages {
     stage('Install') {
       steps {
@@ -16,16 +11,19 @@ pipeline {
     stage('Build Docker Image') {
       steps {
         script {
-          docker.withRegistry('', REG_CREDS) {
-            docker.build("${IMAGE}:${env.BUILD_NUMBER}").push('latest')
-          }
+          docker.build("myapp:${env.BUILD_NUMBER}")
         }
       }
     }
   }
 
   post {
-    success { echo "✅ Build finished!" }
-    failure { echo "❌ Something broke!" }
+    failure {
+      echo '❌ Build failed!'
+    }
+    success {
+      echo '✅ Build complete!'
+    }
   }
 }
+
