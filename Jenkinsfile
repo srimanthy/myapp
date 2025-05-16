@@ -18,12 +18,13 @@ pipeline {
   }
 
   post {
-    failure {
-      echo '❌ Build failed!'
-    }
     success {
-      echo '✅ Build complete!'
+      echo "✅ Build completed successfully!"
+    }
+    failure {
+      echo "❌ Build failed!"
     }
   }
 }
+
 
