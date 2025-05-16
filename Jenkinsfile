@@ -1,7 +1,10 @@
 pipeline {
-  agent none                        // start with “no default” agent
+  agent none                                // no default agent
+
   environment {
-    IMAGE = 'srimanthy/myapp'       // ← your Docker Hub repo
+    IMAGE = 'srimanthy/myapp'               // ← your Docker Hub repo
+    // inject your Docker Hub creds as DOCKERHUB_USR & DOCKERHUB_PSW
+    DOCKERHUB = credentials('docker-hub')
   }
 
   stages {
@@ -20,26 +23,24 @@ pipeline {
           args  '--privileged -v /var/run/docker.sock:/var/run/docker.sock'
         }
       }
+      environment {
+        DOCKERHUB_USR = "${DOCKERHUB_USR}"
+        DOCKERHUB_PSW = "${DOCKERHUB_PSW}"
+      }
       steps {
-        // 1) build
+        // build
         sh 'docker build -t $IMAGE:${BUILD_NUMBER} .'
 
-        // 2) push
-        withCredentials([usernamePassword(
-          credentialsId: 'docker-hub',
-          usernameVariable: 'DOCKER_USER',
-          passwordVariable: 'DOCKER_PASS'
-        )]) {
-          sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-          sh 'docker push $IMAGE:${BUILD_NUMBER}'
-        }
+        // login & push
+        sh 'echo $DOCKERHUB_PSW | docker login -u $DOCKERHUB_USR --password-stdin'
+        sh 'docker push $IMAGE:${BUILD_NUMBER}'
       }
     }
   }
 
   post {
-    success { echo '✅ Image built & pushed!' }
-    failure { echo '❌ Something broke!' }
+    success { echo "✅ Image $IMAGE:${BUILD_NUMBER} built & pushed" }
+    failure { echo "❌ Build or push failed — check console" }
   }
 }
 
