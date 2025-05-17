@@ -1,13 +1,15 @@
-pipeline {
-  agent none                                // no default agent
 
-  environment {
-    IMAGE = 'srimanthy/myapp'               // ← your Docker Hub repo
-    // inject your Docker Hub creds as DOCKERHUB_USR & DOCKERHUB_PSW
-    DOCKERHUB = credentials('docker-hub')
-  }
+pipeline {
+  agent none
 
   stages {
+    stage('Checkout') {
+      agent any
+      steps {
+        checkout scm
+      }
+    }
+
     stage('Install & Test') {
       agent { docker { image 'node:20-alpine' } }
       steps {
@@ -23,24 +25,30 @@ pipeline {
           args  '--privileged -v /var/run/docker.sock:/var/run/docker.sock'
         }
       }
-      environment {
-        DOCKERHUB_USR = "${DOCKERHUB_USR}"
-        DOCKERHUB_PSW = "${DOCKERHUB_PSW}"
-      }
       steps {
-        // build
-        sh 'docker build -t $IMAGE:${BUILD_NUMBER} .'
+        // ensure code is here
+        sh 'ls -lah .'              // sanity check
+        sh 'cat Dockerfile'         // you should see your Dockerfile
 
-        // login & push
-        sh 'echo $DOCKERHUB_PSW | docker login -u $DOCKERHUB_USR --password-stdin'
-        sh 'docker push $IMAGE:${BUILD_NUMBER}'
+        // build
+        sh 'docker build -t srimanthy/myapp:${BUILD_NUMBER} .'
+
+        // push
+        withCredentials([usernamePassword(
+          credentialsId: 'docker-hub',
+          usernameVariable: 'DOCKER_USER',
+          passwordVariable: 'DOCKER_PASS'
+        )]) {
+          sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+          sh 'docker push srimanthy/myapp:${BUILD_NUMBER}'
+        }
       }
     }
   }
 
   post {
-    success { echo "✅ Image $IMAGE:${BUILD_NUMBER} built & pushed" }
-    failure { echo "❌ Build or push failed — check console" }
+    success { echo "✅ Built & pushed srimanthy/myapp:${BUILD_NUMBER}" }
+    failure { echo "❌ Build or push failed — check above logs" }
   }
 }
 
