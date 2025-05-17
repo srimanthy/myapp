@@ -1,0 +1,63 @@
+name: CI-CD
+
+# ➊  WHEN to run ────────────────
+on:
+  push:
+    branches: [ main ]          # run on each push to main
+  pull_request:                 # optional PR check
+    branches: [ main ]
+
+# ➋  Build & Test  ─────────────
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4                # = Jenkins “checkout scm” :contentReference[oaicite:0]{index=0}
+      - uses: actions/setup-node@v4              # only if you need Node for tests
+        with:
+          node-version: 20
+      - name: Run unit tests
+        run: npm ci && npm test                 # adjust to your stack
+
+# ➌  Docker Build + Push ───────
+  docker:
+    needs: build                                # run only if build job succeeds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Buildx driver (fast, cache-able)
+      - uses: docker/setup-buildx-action@v3
+
+      # Log in to Docker Hub with repo secrets
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      # Build and push image; tag with commit SHA
+      - uses: docker/build-push-action@v6        # latest release :contentReference[oaicite:1]{index=1}
+        with:
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USER }}/myapp:${{ github.sha }}
+            ${{ secrets.DOCKER_USER }}/myapp:latest
+
+# ➍  Deploy (example: AWS ECS) ─
+  deploy:
+    needs: docker
+    runs-on: ubuntu-latest
+    environment: production                     # optional manual approval gate
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET }}
+          aws-region: us-east-1
+      - name: Trigger rolling update in ECS
+        run: |
+          aws ecs update-service \
+            --cluster my-cluster \
+            --service my-service \
+            --force-new-deployment
+
