@@ -1,6 +1,8 @@
 pipeline {
   agent none
-  environment { IMAGE = 'srimanthy/myapp' }
+  environment {
+    IMAGE = 'srimanthy/myapp'
+  }
 
   stages {
     stage('Checkout') {
@@ -20,9 +22,8 @@ pipeline {
       agent {
         docker {
           image 'docker:20.10.24-dind'
-          // run container as root and give it the host socket
-          user  'root'
-          args  '--privileged -v /var/run/docker.sock:/var/run/docker.sock'
+          // run container as root (user 0:0) and give it the host socket
+          args  '--privileged -u 0:0 -v /var/run/docker.sock:/var/run/docker.sock'
         }
       }
       steps {
