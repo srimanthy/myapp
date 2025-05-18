@@ -4,8 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"No tests to run\""
-  },
+  "start": "node index.js"
+}
+,
   "keywords": [],
   "author": "",
   "license": "ISC"
